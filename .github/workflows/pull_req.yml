@@ -35,3 +35,4 @@ jobs:
           ignoreLabels: |
             bot
             ignore-semantic-pull-request
+            
