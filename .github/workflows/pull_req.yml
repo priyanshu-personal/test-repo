@@ -30,6 +30,5 @@ jobs:
             PLAT-\d+
             PE-\d+
           requireScope: true
-          disallowScopes: |
-            release
-            [A-Z]+
+        
+        
