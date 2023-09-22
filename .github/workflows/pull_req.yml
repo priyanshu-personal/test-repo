@@ -19,8 +19,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          types: |-
+          types: |
             feat
             fix
             chore
-          requireScope: false
+          scopes: |
+            POD[1-3]-\d+
+            PLG-\d+
+            PLAT-\d+
+            PE-\d+
+          requireScope: true
+          disallowScopes: |
+            release
+            [A-Z]+
+          ignoreLabels: |
+            bot
+            ignore-semantic-pull-request
+            
