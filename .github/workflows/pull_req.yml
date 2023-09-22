@@ -24,15 +24,11 @@ jobs:
             fix
             chore
           scopes: |
+            api
             POD[1-3]-\d+
             PLG-\d+
             PLAT-\d+
             PE-\d+
           requireScope: true
-          disallowScopes: |
-            release
-            [A-Z]+
-          ignoreLabels: |
-            bot
-            ignore-semantic-pull-request
-            
+        
+        
