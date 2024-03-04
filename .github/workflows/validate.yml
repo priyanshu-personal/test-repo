@@ -1,0 +1,29 @@
+name: PR Title Validation Check
+
+on:
+  pull_request_target:
+    types:
+      - labeled
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - edited
+
+jobs:
+  pr-title-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check PR Title
+        run: |
+          pr_title=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" ${{ github.api_url }}/repos/${{ github.repository }}/pulls/${{ github.event.number }} | jq -r '.title')
+
+          regex_pattern="^(P[0-9]+-[0-9]+|POD[0-9]+-[0-9]+|ENG-[0-9]+|PLG-[0-9]+|CP-[0-9]+|PLAT-[0-9]+|QA-[0-9]+|[A-Z][0-9]+) \| (feat|chore|fix|hotfix)(\([a-zA-Z0-9_\-]+\))?:( .+)$"
+
+          if [[ ! $pr_title =~ $regex_pattern ]]; then
+            echo "error: Invalid PR title format. Please use the format '<TICKET-NUMBER> | <type>[optional scope]: short title'  Ex. 'P1-1234 | feat(search): add new inventory card'."
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
