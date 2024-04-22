@@ -1,0 +1,106 @@
+name: Code Coverage
+
+on:
+  schedule:
+    - cron: "5 * * * *"  
+
+jobs:
+  rspec:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:10-2.5
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:alpine
+        ports: [ "6379:6379" ]
+        options: --entrypoint redis-server
+    env:
+      DATABASE_NAME: postgres
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_PORT: 5432
+      DATABASE_HOST: localhost
+      REDIS_HOST: localhost
+      REDIS_RESQUE_HOST: localhost
+      REDIS_PORT: 6379
+      REDIS_NAMESPACE: s_base
+      RAILS_ENV: test
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Determine run step
+        run: |
+          echo "${{ github.head_ref }}"
+          if [[ "${{ github.head_ref }}" == "release" ]] || [[ "${{ github.head_ref }}" == conflict* ]] || [[ "${{ github.head_ref }}" == revert* ]]; then
+          echo "RUN_TEST_COUNTER=false" >> $GITHUB_ENV
+          else
+          echo "RUN_TEST_COUNTER=true" >> $GITHUB_ENV
+          fi
+
+      - name: Set up Ruby for PR branch
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.7.8
+          bundler-cache: true
+
+      - name: Install libpq-dev
+        run: |
+          sudo apt-get -yqq install libpq-dev
+
+      - name: Migrate database for PR branch
+        run: |
+          bundle exec rails db:migrate
+
+      - name: Rails test
+        run: |
+          bundle exec rspec
+
+      - name: Checkout master branch
+        if: env.RUN_TEST_COUNTER == 'true'
+        uses: actions/checkout@v3
+        with:
+          ref: master
+
+      - name: Set up Ruby for master branch
+        if: env.RUN_TEST_COUNTER == 'true'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.7.8
+          bundler-cache: true
+
+      - name: Extract Coverage Percentage
+        id: extract_coverage
+        run: |
+          coverage=$(bundle exec rspec | grep 'Coverage report generated' | awk '{print $(NF-1)}' | sed 's/(//' | sed 's/%)//')
+          date=$(date '+%Y-%m-%d')
+          echo "CURRENT_DATE=$date" >> $GITHUB_ENV
+          echo "CODE_COVERAGE=$coverage"  >> $GITHUB_ENV
+
+      - name: Update Google Sheet
+        id: update_sheet
+        uses: jroehl/gsheet.action@v2.0.0
+        with:
+          spreadsheetId: ${{ vars.GSHEET_ID }}
+          commands: |
+            [
+              { "command": "getWorksheet", "args": { "worksheetTitle": "BE_Code_Coverage","spreadsheetId": "${{ vars.GSHEET_ID }}" }},
+              { "command": "appendData", "args": { "data": [["${{env.CURRENT_DATE}}", "${{ env.CODE_COVERAGE }}"]], "worksheetTitle": "BE_Code_Coverage", "minCol": 1 }}
+            ]
+        env:
+          GSHEET_CLIENT_EMAIL: ${{ vars.GSHEET_CLIENT_EMAIL }}
+          GSHEET_PRIVATE_KEY: ${{ secrets.GSHEET_PRIVATE_KEY }}
+
+      - name: Dump Results
+        run: |
+          echo "Google Sheet updated with today's date and coverage percentage."
