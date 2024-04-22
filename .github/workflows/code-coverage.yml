@@ -2,7 +2,7 @@ name: Code Coverage
 
 on:
   schedule:
-    - cron: "27 * * * *"
+    - cron: "*/1 * * * *"
 
 jobs:
   rspec:
